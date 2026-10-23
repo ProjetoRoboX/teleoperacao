@@ -1,7 +1,15 @@
+# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Segredos e arquivos gerados na máquina de cada pessoa. NUNCA commitar.
+chave_ia.txt
 .env
+*.pem
+certificado/
+
+# Editores
 .vscode/
 .idea/

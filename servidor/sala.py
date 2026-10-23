@@ -65,8 +65,10 @@ class Sala:
         """Registra a conexão. Retorna False se deve ser recusada (cliente ocupado)."""
         antigo = self.conexoes.get(papel)
         if antigo is not None:
-            if papel == "cliente" and (self.parceiro == "cliente" or self.pedido):
+            if (papel == "cliente" and (self.parceiro == "cliente" or self.pedido)
+                    and not config.AUTO_ACEITAR):
                 return False  # não derruba um cliente que já está sendo atendido
+            # no modo ator há um só computador de cliente: a reconexão dele substitui a antiga
             log.info("%s já conectado; substituindo conexão antiga", papel)
             try:
                 await antigo.close(code=4000)
@@ -202,6 +204,12 @@ class Sala:
         if tipo == "pedir":
             if "robo" not in self.conexoes:
                 await self._erro("cliente", "robo_ausente")
+            elif config.AUTO_ACEITAR and self.parceiro is None:
+                # modo ator: não há operador; o cliente entra direto na conversa
+                self.pedido = False
+                self.parceiro = "cliente"
+                await self._enviar("robo", {"tipo": "iniciar", "com": "cliente"})
+                await self._enviar("cliente", {"tipo": "aceito"})
             elif "operador" not in self.conexoes:
                 await self._erro("cliente", "operador_ausente")
             elif self.parceiro is not None:

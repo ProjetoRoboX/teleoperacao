@@ -9,6 +9,7 @@
 import asyncio
 import hmac
 import logging
+import mimetypes
 from pathlib import Path
 from typing import Optional
 
@@ -22,7 +23,17 @@ from .sala import Sala
 
 log = logging.getLogger("servidor")
 
+# No Windows o Python lê os tipos de arquivo do registro, e em alguns computadores ".js" vira
+# "text/plain": o navegador então recusa módulos JavaScript (a detecção de rosto) e o WebAssembly.
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/javascript", ".mjs")
+mimetypes.add_type("application/wasm", ".wasm")
+mimetypes.add_type("text/css", ".css")
+
 app = FastAPI(title="Sinalização de teleoperação")
+from .ia import roteador as roteador_ia
+
+app.include_router(roteador_ia)
 sala = Sala()
 
 
@@ -68,12 +79,15 @@ async def sinalizacao(websocket: WebSocket, token: str = "") -> None:
 
 @app.get("/")
 async def raiz():
-    return RedirectResponse("/operador/")
+    return RedirectResponse("/ator/" if config.AUTO_ACEITAR else "/operador/")
 
 
 _raiz = Path(__file__).resolve().parent.parent
 app.mount("/operador", StaticFiles(directory=_raiz / "operador", html=True), name="operador")
 app.mount("/cliente", StaticFiles(directory=_raiz / "cliente", html=True), name="cliente")
+# modo ator: /ator/ é quem faz o papel do robô; /conversa/ mostra o rosto do robô ao cliente
+app.mount("/ator", StaticFiles(directory=_raiz / "ator", html=True), name="ator")
+app.mount("/conversa", StaticFiles(directory=_raiz / "conversa", html=True), name="conversa")
 
 
 def executar() -> None:
@@ -88,7 +102,18 @@ def executar() -> None:
         log.error("Os três tokens precisam ser DIFERENTES entre si.")
     kwargs = {}
     if config.SSL_CERT and config.SSL_KEY:
-        kwargs = {"ssl_certfile": config.SSL_CERT, "ssl_keyfile": config.SSL_KEY}
+        cert, chave = Path(config.SSL_CERT), Path(config.SSL_KEY)
+        if not (cert.is_file() and chave.is_file()):
+            # certificado sumiu (pasta movida, apagada...): cria de novo em vez de travar
+            log.warning("certificado não encontrado em %s; criando outro", cert.parent)
+            try:
+                from .certificado import garantir
+                cert, chave = garantir(cert.parent)
+            except Exception:
+                log.exception("não consegui criar o certificado; o servidor vai rodar sem HTTPS")
+                cert = chave = None
+        if cert and chave:
+            kwargs = {"ssl_certfile": str(cert), "ssl_keyfile": str(chave)}
     uvicorn.run(app, host=config.SERVIDOR_HOST, port=config.SERVIDOR_PORTA, log_level="info", **kwargs)
 
 

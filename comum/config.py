@@ -32,6 +32,10 @@ TOKEN_ROBO = _env("TOKEN_ROBO", TOKEN_PADRAO_ROBO)
 TOKEN_OPERADOR = _env("TOKEN_OPERADOR", TOKEN_PADRAO_OPERADOR)
 TOKEN_CLIENTE = _env("TOKEN_CLIENTE", TOKEN_PADRAO_CLIENTE)
 
+# Modo ator: uma pessoa faz o papel do robô pela página /ator/ (entra com TOKEN_ROBO) e o
+# cliente fala direto com ela pela página /conversa/, sem aprovação de operador.
+AUTO_ACEITAR = _env("AUTO_ACEITAR", "0") == "1"
+
 # URL que robô e script de medição usam para falar com o servidor
 URL_SERVIDOR = _env("URL_SERVIDOR", f"ws://127.0.0.1:{SERVIDOR_PORTA}/ws")
 
